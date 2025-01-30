@@ -2,7 +2,6 @@
 A skeleton from which you should write your client.
 """
 
-
 import socket
 import json
 import argparse
@@ -12,9 +11,9 @@ import sys
 import time
 import datetime
 import struct
+from socket import timeout
 
 from message import UnencryptedIMMessage
-
 
 def parseArgs():
     """
@@ -66,11 +65,39 @@ def main():
     readSet = [s] + [sys.stdin]
 
     while True:
-        # HERE'S WHERE YOU NEED TO FILL IN STUFF
+        potentialReaders = [readSet]
+        potentialWriters = []
+        potentialErrs = []
+        readyToRead = []
+        readyToWrite = []
+        inErr = []
+        readyToRead, readyToWrite, inErr = select.select(
+            potentialReaders,
+            potentialWriters,
+            potentialErrs,
+            timeout)
+        for source in readyToRead:
+            #Case1: reads from standard input and sends whatever was typed by the user to the BasicIM server;
+            if source is sys.stdin:
+                userMessage = sys.stdin.readline()
+                if userMessage:
+                    msg = UnencryptedIMMessage(args.nickname, userMessage)
+                    (packedSize,jsonData) = msg.serialize()
+                    s.send(struct.unpack("!L",packedSize)[0])
+                    s.send(jsonData)
+            #Case2: reads from a network socket (connected to the BasicIM server) and receives messages (via the server), 
+            # which it then displays to standard output (i.e., it prints out the received messages).
+            if source is s:
+                packedLen = s.recv(4, socket.MSG_WAITALL)
+                unpackedSize = struct.unpack("!L", packedLen)[0]
+                messageBody = s.recv(unpackedSize, socket.MSG_WAITALL)
+                msg = UnencryptedIMMessage.parseJSON(messageBody)
+                print(msg)
 
-        # DELETE THE NEXT TWO LINES. It's here now to prevent busy-waiting.
-        time.sleep(1)
-        log.info("not much happening here.  someone should rewrite this part of the code.")
+        
+        # # DELETE THE NEXT TWO LINES. It's here now to prevent busy-waiting.
+        # time.sleep(1)
+        # log.info("not much happening here.  someone should rewrite this part of the code.")
 
         
 
